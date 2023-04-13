@@ -1,41 +1,18 @@
-import React, { useRef, useState } from "react";
-
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { useFormik } from "formik";
 
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
-import { Toast } from "primereact/toast";
 import { Checkbox } from "primereact/checkbox";
 
 import LoginService from "../services/LoginService";
+import "react-toastify/dist/ReactToastify.css";
 
 export const Login = () => {
   const [blocked, setBlocked] = useState(false);
-  const toast = useRef(null);
-
-  const loginSuccessToast = () => {
-    toast.current.show({
-      severity: "success",
-      summary: "Login Successful",
-      life: 3000,
-    });
-  };
-
-  const loginFailedToast = () => {
-    toast.current.show({
-      severity: "error",
-      summary: "Invalid Credential",
-      life: 3000,
-    });
-  };
-
-  const invalidCredToast = (msg) => {
-    toast.current.show({
-      severity: "error",
-      summary: msg,
-      life: 3000,
-    });
-  };
+  const nav = useNavigate();
 
   const formik = useFormik({
     initialValues: {
@@ -45,21 +22,35 @@ export const Login = () => {
     onSubmit: (data) => {
       setBlocked(true);
       if (!data.password || !data.username) {
-        invalidCredToast("Username and Password must not be empty!");
         setBlocked(false);
+        toast.error("Username and password must not be empty.", {
+          position: toast.POSITION.TOP_RIGHT,
+          autoClose: 2000,
+        });
       } else {
         const loginService = new LoginService();
         loginService.loginUser(data).then((res) => {
-          console.log(res.status);
-          if (!res.status) {
-            loginFailedToast();
-            setBlocked(false);
+          if (res.status) {
+            localStorage.setItem("isAuthenticated", true);
+            localStorage.setItem("dash-token", res.token);
+            localStorage.setItem("username", data.username);
+
+            toast.success(`${res.message} Welcome back, ${data.username}`, {
+              position: toast.POSITION.TOP_RIGHT,
+              autoClose: 2000,
+              onClose: () => {
+                nav("/dashboard");
+              },
+            });
           } else {
-            loginSuccessToast();
             setBlocked(false);
-            window.location.href = "/dashboard";
+            toast.error(res.message, {
+              position: toast.POSITION.TOP_RIGHT,
+              autoClose: 2000,
+            });
           }
         });
+        return;
       }
     },
   });
@@ -86,9 +77,7 @@ export const Login = () => {
                     value={formik.values.username}
                     type="text"
                     disabled={blocked}
-                    onChange={(e) => {
-                      formik.setFieldValue("username", e.target.value);
-                    }}
+                    onChange={formik.handleChange}
                   />
                 </div>
               </div>
@@ -101,9 +90,7 @@ export const Login = () => {
                     value={formik.values.password}
                     type="password"
                     disabled={blocked}
-                    onChange={(e) => {
-                      formik.setFieldValue("password", e.target.value);
-                    }}
+                    onChange={formik.handleChange}
                   />
                 </div>
               </div>
@@ -124,13 +111,12 @@ export const Login = () => {
                 </div>
               </div>
               <div className="col-12 sm:col-8 md:col-8 mx-auto">
-                <Button type="submit" label="Sign In" disabled={blocked} />
+                <Button type="submit" label="Sign In" loading={blocked} />
               </div>
             </form>
           </div>
         </div>
       </div>
-      <Toast ref={toast} />
     </div>
   );
 };
